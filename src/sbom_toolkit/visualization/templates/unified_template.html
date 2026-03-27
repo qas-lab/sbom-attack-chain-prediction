@@ -1,0 +1,2257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE}} - SBOM Security Analysis</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* =======================================================================
+           Design System Variables
+           ======================================================================= */
+        :root {
+            /* Color Palette - Dark Cyber Theme */
+            --color-bg-primary: #0a0e1a;
+            --color-bg-secondary: #0f1629;
+            --color-bg-tertiary: #1a1f3a;
+            --color-bg-elevated: #232942;
+            
+            /* Surface colors with transparency for glassmorphism */
+            --color-surface-glass: rgba(15, 22, 41, 0.85);
+            --color-surface-glass-hover: rgba(26, 31, 58, 0.9);
+            --color-surface-card: rgba(35, 41, 66, 0.6);
+            
+            /* Accent Colors */
+            --color-accent-primary: #00d4ff;
+            --color-accent-primary-dim: rgba(0, 212, 255, 0.2);
+            --color-accent-primary-glow: rgba(0, 212, 255, 0.4);
+            --color-accent-secondary: #7c3aed;
+            
+            /* Semantic Colors */
+            --color-safe: #00ff88;
+            --color-safe-dim: rgba(0, 255, 136, 0.15);
+            --color-safe-glow: rgba(0, 255, 136, 0.4);
+            
+            --color-vulnerable: #ff4757;
+            --color-vulnerable-dim: rgba(255, 71, 87, 0.15);
+            --color-vulnerable-glow: rgba(255, 71, 87, 0.5);
+            
+            --color-warning: #ffa502;
+            --color-warning-dim: rgba(255, 165, 2, 0.15);
+            --color-warning-glow: rgba(255, 165, 2, 0.4);
+            
+            --color-critical: #ff2d55;
+            --color-critical-glow: rgba(255, 45, 85, 0.6);
+            
+            /* Text Colors */
+            --color-text-primary: #e8eaf6;
+            --color-text-secondary: #9fa8da;
+            --color-text-muted: #5c6bc0;
+            --color-text-disabled: #3d4663;
+            
+            /* Border Colors */
+            --color-border: rgba(92, 107, 192, 0.2);
+            --color-border-hover: rgba(0, 212, 255, 0.3);
+            --color-border-focus: var(--color-accent-primary);
+            
+            /* Node Colors */
+            --color-node-sbom: #64748b;
+            --color-node-library: #3b82f6;
+            --color-node-license: #a855f7;
+            --color-node-vulnerable: var(--color-vulnerable);
+            --color-node-dependent: var(--color-warning);
+            --color-node-safe: #22d3ee;
+            
+            /* Link Colors */
+            --color-link-direct: rgba(0, 212, 255, 0.6);
+            --color-link-transitive: rgba(124, 58, 237, 0.5);
+            --color-link-license: rgba(168, 85, 247, 0.4);
+            --color-link-vulnerable: var(--color-vulnerable);
+            
+            /* Typography */
+            --font-family-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-family-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+            
+            /* Spacing */
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+            
+            /* Border Radius */
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
+            
+            /* Shadows */
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+            --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
+            --shadow-glow-cyan: 0 0 20px var(--color-accent-primary-glow);
+            --shadow-glow-red: 0 0 20px var(--color-vulnerable-glow);
+            --shadow-glow-green: 0 0 20px var(--color-safe-glow);
+            
+            /* Transitions */
+            --transition-fast: 150ms ease;
+            --transition-normal: 250ms ease;
+            --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+            
+            /* Layout */
+            --sidebar-width: 340px;
+        }
+
+        /* =======================================================================
+           Base Styles
+           ======================================================================= */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: var(--font-family-ui);
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--color-text-primary);
+            background: var(--color-bg-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Cyber Grid Background */
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: 
+                linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 100%),
+                repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(0, 212, 255, 0.02) 50px, rgba(0, 212, 255, 0.02) 51px),
+                repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(0, 212, 255, 0.02) 50px, rgba(0, 212, 255, 0.02) 51px);
+        }
+
+        /* =======================================================================
+           Sidebar
+           ======================================================================= */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--color-surface-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--color-border);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transition: transform var(--transition-normal);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(calc(-1 * var(--sidebar-width)));
+        }
+
+        .sidebar-header {
+            padding: var(--space-5);
+            border-bottom: 1px solid var(--color-border);
+            background: linear-gradient(180deg, rgba(0, 212, 255, 0.08) 0%, transparent 100%);
+        }
+
+        .sidebar-title {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .sidebar-title-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--color-accent-primary) 0%, var(--color-accent-secondary) 100%);
+            border-radius: var(--radius-md);
+        }
+
+        .sidebar-title-icon i {
+            color: var(--color-bg-primary);
+        }
+
+        .sidebar-subtitle {
+            margin-top: var(--space-2);
+            font-size: 12px;
+            color: var(--color-text-muted);
+            font-family: var(--font-family-mono);
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-4);
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-text-muted) transparent;
+        }
+
+        .sidebar-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb {
+            background: var(--color-text-muted);
+            border-radius: var(--radius-full);
+        }
+
+        /* Sidebar Toggle */
+        .sidebar-toggle {
+            position: fixed;
+            left: var(--sidebar-width);
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 64px;
+            background: var(--color-surface-glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--color-border);
+            border-left: none;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-secondary);
+            transition: all var(--transition-fast);
+            z-index: 101;
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--color-surface-glass-hover);
+            color: var(--color-accent-primary);
+            border-color: var(--color-border-hover);
+        }
+
+        .sidebar.collapsed ~ .sidebar-toggle {
+            left: 0;
+        }
+
+        .sidebar-toggle i {
+            transition: transform var(--transition-fast);
+        }
+
+        .sidebar.collapsed ~ .sidebar-toggle i {
+            transform: rotate(180deg);
+        }
+
+        /* =======================================================================
+           Section Components
+           ======================================================================= */
+        .section {
+            margin-bottom: var(--space-5);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin-bottom: var(--space-3);
+            padding-bottom: var(--space-2);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .section-icon {
+            color: var(--color-accent-primary);
+        }
+
+        /* =======================================================================
+           Statistics Cards
+           ======================================================================= */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-3);
+        }
+
+        .stat-card {
+            background: var(--color-surface-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            text-align: center;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--color-accent-primary), var(--color-accent-secondary));
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .stat-card:hover {
+            border-color: var(--color-border-hover);
+            transform: translateY(-2px);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-number {
+            font-family: var(--font-family-mono);
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            line-height: 1.2;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: var(--space-1);
+        }
+
+        .stat-card.vulnerable {
+            border-color: rgba(255, 71, 87, 0.3);
+        }
+
+        .stat-card.vulnerable .stat-number {
+            color: var(--color-vulnerable);
+            text-shadow: 0 0 20px var(--color-vulnerable-glow);
+        }
+
+        .stat-card.vulnerable::before {
+            background: var(--color-vulnerable);
+            opacity: 1;
+        }
+
+        .stat-card.warning {
+            border-color: rgba(255, 165, 2, 0.3);
+        }
+
+        .stat-card.warning .stat-number {
+            color: var(--color-warning);
+            text-shadow: 0 0 15px var(--color-warning-glow);
+        }
+
+        .stat-card.warning::before {
+            background: var(--color-warning);
+            opacity: 1;
+        }
+
+        .stat-card.safe {
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        .stat-card.safe .stat-number {
+            color: var(--color-safe);
+        }
+
+        .stat-card.safe::before {
+            background: var(--color-safe);
+            opacity: 1;
+        }
+
+        /* =======================================================================
+           Layout Selector
+           ======================================================================= */
+        .layout-selector {
+            display: flex;
+            gap: var(--space-2);
+            padding: var(--space-1);
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+        }
+
+        .layout-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-1);
+            padding: var(--space-3) var(--space-2);
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            color: var(--color-text-muted);
+            font-size: 11px;
+            font-family: var(--font-family-ui);
+        }
+
+        .layout-btn:hover {
+            color: var(--color-text-secondary);
+            background: var(--color-surface-card);
+        }
+
+        .layout-btn.active {
+            color: var(--color-accent-primary);
+            background: var(--color-accent-primary-dim);
+            border-color: var(--color-accent-primary);
+            box-shadow: inset 0 0 20px var(--color-accent-primary-glow);
+        }
+
+        .layout-btn i {
+            font-size: 18px;
+        }
+
+        /* =======================================================================
+           Search Input
+           ======================================================================= */
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: var(--space-3) var(--space-4);
+            padding-left: 40px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-family: var(--font-family-ui);
+            font-size: 13px;
+            color: var(--color-text-primary);
+            transition: all var(--transition-fast);
+        }
+
+        .search-input::placeholder {
+            color: var(--color-text-muted);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--color-accent-primary);
+            box-shadow: 0 0 0 3px var(--color-accent-primary-dim);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: var(--space-3);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--color-text-muted);
+            pointer-events: none;
+        }
+
+        .search-shortcut {
+            position: absolute;
+            right: var(--space-3);
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 2px 6px;
+            background: var(--color-surface-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-family-mono);
+            font-size: 10px;
+            color: var(--color-text-muted);
+        }
+
+        /* =======================================================================
+           Toggle Switch
+           ======================================================================= */
+        .toggle-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+        }
+
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-3);
+            background: var(--color-surface-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+        }
+
+        .toggle-item:hover {
+            border-color: var(--color-border-hover);
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: var(--color-text-muted);
+            border-radius: 50%;
+            transition: all var(--transition-spring);
+        }
+
+        .toggle-switch.active {
+            background: var(--color-accent-primary-dim);
+            border-color: var(--color-accent-primary);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+            background: var(--color-accent-primary);
+            box-shadow: 0 0 10px var(--color-accent-primary-glow);
+        }
+
+        /* =======================================================================
+           Node Details Panel
+           ======================================================================= */
+        .node-details {
+            padding: var(--space-4);
+            background: var(--color-surface-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            display: none;
+        }
+
+        .node-details.show {
+            display: block;
+        }
+
+        .node-details-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-bottom: var(--space-4);
+        }
+
+        .node-details-icon {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-lg);
+            flex-shrink: 0;
+        }
+
+        .node-details-icon.vulnerable {
+            background: var(--color-vulnerable-dim);
+            color: var(--color-vulnerable);
+            box-shadow: inset 0 0 20px var(--color-vulnerable-glow);
+        }
+
+        .node-details-icon.safe {
+            background: var(--color-safe-dim);
+            color: var(--color-safe);
+        }
+
+        .node-details-icon.library {
+            background: var(--color-accent-primary-dim);
+            color: var(--color-accent-primary);
+        }
+
+        .node-details-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            word-break: break-word;
+        }
+
+        .node-details-type {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-2) 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+
+        .detail-value {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            font-family: var(--font-family-mono);
+        }
+
+        /* Vulnerability List */
+        .vuln-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+            margin-top: var(--space-3);
+        }
+
+        .vuln-item {
+            padding: var(--space-3);
+            background: var(--color-vulnerable-dim);
+            border: 1px solid rgba(255, 71, 87, 0.2);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--color-vulnerable);
+        }
+
+        .vuln-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-2);
+        }
+
+        .vuln-id {
+            font-family: var(--font-family-mono);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-vulnerable);
+        }
+
+        .vuln-description {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Severity Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            font-family: var(--font-family-mono);
+            font-size: 10px;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+        }
+
+        .badge-critical {
+            background: var(--color-critical);
+            color: white;
+            box-shadow: 0 0 10px var(--color-critical-glow);
+        }
+
+        .badge-high {
+            background: var(--color-vulnerable);
+            color: white;
+        }
+
+        .badge-medium {
+            background: var(--color-warning);
+            color: var(--color-bg-primary);
+        }
+
+        .badge-low {
+            background: var(--color-text-muted);
+            color: var(--color-text-primary);
+        }
+
+        /* =======================================================================
+           Main Content / Visualization
+           ======================================================================= */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            position: relative;
+            transition: margin-left var(--transition-normal);
+        }
+
+        .sidebar.collapsed ~ .main-content {
+            margin-left: 0;
+        }
+
+        .viz-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #visualization-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Toolbar */
+        .viz-toolbar {
+            position: absolute;
+            top: var(--space-4);
+            right: var(--space-4);
+            display: flex;
+            gap: var(--space-2);
+            z-index: 50;
+        }
+
+        .toolbar-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-surface-glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .toolbar-btn:hover {
+            background: var(--color-surface-glass-hover);
+            color: var(--color-accent-primary);
+            border-color: var(--color-border-hover);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-bg-primary);
+            z-index: 200;
+            transition: opacity var(--transition-normal);
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--color-border);
+            border-top-color: var(--color-accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: var(--space-4);
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* =======================================================================
+           Tooltip
+           ======================================================================= */
+        .tooltip {
+            position: absolute;
+            max-width: 380px;
+            min-width: 260px;
+            padding: var(--space-4);
+            background: var(--color-surface-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            z-index: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition-fast);
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .tooltip-header {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-3);
+            margin-bottom: var(--space-3);
+            padding-bottom: var(--space-3);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .tooltip-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-surface-card);
+            border-radius: var(--radius-md);
+            flex-shrink: 0;
+        }
+
+        .tooltip-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            word-break: break-word;
+        }
+
+        .tooltip-subtitle {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            font-family: var(--font-family-mono);
+            margin-top: 2px;
+        }
+
+        .tooltip-content {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+
+        .tooltip-section {
+            margin-top: var(--space-3);
+            padding: var(--space-3);
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-md);
+            border-left: 3px solid var(--color-accent-primary);
+        }
+
+        .tooltip-section.vulnerable {
+            background: var(--color-vulnerable-dim);
+            border-left-color: var(--color-vulnerable);
+        }
+
+        .tooltip-section.warning {
+            background: var(--color-warning-dim);
+            border-left-color: var(--color-warning);
+        }
+
+        .tooltip-section.safe {
+            background: var(--color-safe-dim);
+            border-left-color: var(--color-safe);
+        }
+
+        .tooltip-section.license {
+            background: rgba(168, 85, 247, 0.1);
+            border-left-color: var(--color-node-license);
+        }
+
+        .tooltip-section-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-2);
+        }
+
+        /* =======================================================================
+           Command Palette
+           ======================================================================= */
+        .command-palette-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 14, 26, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 15vh;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition-fast);
+        }
+
+        .command-palette-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .command-palette {
+            width: 100%;
+            max-width: 520px;
+            background: var(--color-surface-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+        }
+
+        .command-input-container {
+            display: flex;
+            align-items: center;
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--color-border);
+            gap: var(--space-3);
+        }
+
+        .command-input-container i {
+            color: var(--color-text-muted);
+        }
+
+        .command-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            font-size: 15px;
+            color: var(--color-text-primary);
+            outline: none;
+            font-family: var(--font-family-ui);
+        }
+
+        .command-input::placeholder {
+            color: var(--color-text-muted);
+        }
+
+        .command-results {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .command-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-4);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .command-item:hover,
+        .command-item.selected {
+            background: var(--color-surface-card);
+        }
+
+        .command-item-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-md);
+            color: var(--color-text-muted);
+        }
+
+        .command-item-content {
+            flex: 1;
+        }
+
+        .command-item-title {
+            font-size: 13px;
+            color: var(--color-text-primary);
+        }
+
+        .command-item-hint {
+            font-size: 11px;
+            color: var(--color-text-muted);
+        }
+
+        .command-item-shortcut {
+            font-family: var(--font-family-mono);
+            font-size: 11px;
+            color: var(--color-text-muted);
+            padding: 2px 6px;
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-sm);
+        }
+
+        /* =======================================================================
+           SVG / D3 Styles
+           ======================================================================= */
+        .node circle {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .node.vulnerable circle {
+            fill: var(--color-vulnerable) !important;
+            filter: drop-shadow(0 0 8px var(--color-vulnerable-glow));
+        }
+
+        .node.dependent circle {
+            fill: var(--color-warning) !important;
+            filter: drop-shadow(0 0 6px var(--color-warning-glow));
+        }
+
+        .node text {
+            font-family: var(--font-family-mono);
+            font-size: 11px;
+            fill: var(--color-text-primary);
+            pointer-events: none;
+            paint-order: stroke fill;
+            stroke: var(--color-bg-primary);
+            stroke-width: 3px;
+            font-weight: 500;
+        }
+
+        .link {
+            stroke-opacity: 0.6;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .link.vulnerable {
+            stroke: var(--color-vulnerable);
+            stroke-width: 2;
+            stroke-opacity: 1;
+        }
+
+        .link.dependent {
+            stroke: var(--color-warning);
+            stroke-width: 2;
+            stroke-opacity: 0.8;
+        }
+
+        /* =======================================================================
+           Animations
+           ======================================================================= */
+        @keyframes pulse-glow {
+            0%, 100% {
+                filter: drop-shadow(0 0 4px var(--color-vulnerable-glow));
+            }
+            50% {
+                filter: drop-shadow(0 0 12px var(--color-vulnerable-glow));
+            }
+        }
+
+        .node.vulnerable circle {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fade-in var(--transition-normal) ease-out;
+        }
+
+        /* =======================================================================
+           Responsive
+           ======================================================================= */
+        @media (max-width: 768px) {
+            :root {
+                --sidebar-width: 100%;
+            }
+            
+            .sidebar {
+                top: auto;
+                bottom: 0;
+                height: 60vh;
+                width: 100%;
+                border-right: none;
+                border-top: 1px solid var(--color-border);
+                border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+                transform: translateY(calc(100% - 60px));
+            }
+            
+            .sidebar.expanded {
+                transform: translateY(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .sidebar-toggle {
+                left: 50%;
+                top: auto;
+                bottom: calc(60vh - 30px);
+                transform: translateX(-50%);
+                width: 64px;
+                height: 24px;
+                border-radius: var(--radius-md) var(--radius-md) 0 0;
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <div class="sidebar-title-icon">
+                        <i data-lucide="shield-check"></i>
+                    </div>
+                    <span>SBOM Analysis</span>
+                </div>
+                <div class="sidebar-subtitle">{{TIMESTAMP}}</div>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Statistics Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <i data-lucide="bar-chart-2" class="section-icon" width="14" height="14"></i>
+                        <span class="section-title">Overview</span>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="total-components">0</div>
+                            <div class="stat-label">Components</div>
+                        </div>
+                        <div class="stat-card vulnerable">
+                            <div class="stat-number" id="vulnerable-components">0</div>
+                            <div class="stat-label">Vulnerable</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-number" id="critical-vulns">0</div>
+                            <div class="stat-label">Critical CVEs</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="total-licenses">0</div>
+                            <div class="stat-label">Licenses</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Layout Selection -->
+                <div class="section">
+                    <div class="section-header">
+                        <i data-lucide="layout-grid" class="section-icon" width="14" height="14"></i>
+                        <span class="section-title">Visualization</span>
+                    </div>
+                    <div class="layout-selector">
+                        <button class="layout-btn active" data-layout="force-directed" id="btn-force-directed">
+                            <i data-lucide="git-branch"></i>
+                            <span>Force</span>
+                        </button>
+                        <button class="layout-btn" data-layout="hierarchical" id="btn-hierarchical">
+                            <i data-lucide="git-fork"></i>
+                            <span>Tree</span>
+                        </button>
+                        <button class="layout-btn" data-layout="circular" id="btn-circular">
+                            <i data-lucide="circle-dot"></i>
+                            <span>Radial</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search -->
+                <div class="section">
+                    <div class="section-header">
+                        <i data-lucide="search" class="section-icon" width="14" height="14"></i>
+                        <span class="section-title">Search</span>
+                    </div>
+                    <div class="search-container">
+                        <i data-lucide="search" class="search-icon" width="16" height="16"></i>
+                        <input type="text" class="search-input" id="search-input" placeholder="Search components...">
+                        <span class="search-shortcut">/</span>
+                    </div>
+                </div>
+
+                <!-- Filter Controls -->
+                <div class="section">
+                    <div class="section-header">
+                        <i data-lucide="filter" class="section-icon" width="14" height="14"></i>
+                        <span class="section-title">Filters</span>
+                    </div>
+                    <div class="toggle-group">
+                        <div class="toggle-item">
+                            <span class="toggle-label">Direct Dependencies</span>
+                            <div class="toggle-switch active" id="toggle-direct" data-filter="direct"></div>
+                        </div>
+                        <div class="toggle-item">
+                            <span class="toggle-label">Transitive Dependencies</span>
+                            <div class="toggle-switch active" id="toggle-transitive" data-filter="transitive"></div>
+                        </div>
+                        <div class="toggle-item">
+                            <span class="toggle-label">Highlight Vulnerable</span>
+                            <div class="toggle-switch" id="toggle-vulnerable" data-filter="vulnerable"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Node Details -->
+                <div class="section">
+                    <div class="section-header">
+                        <i data-lucide="info" class="section-icon" width="14" height="14"></i>
+                        <span class="section-title">Selected Node</span>
+                    </div>
+                    <div class="node-details" id="node-details">
+                        <div class="node-details-header">
+                            <div class="node-details-icon library" id="node-icon">
+                                <i data-lucide="package"></i>
+                            </div>
+                            <div>
+                                <div class="node-details-title" id="node-title">Select a node</div>
+                                <div class="node-details-type" id="node-type">Click on any node to view details</div>
+                            </div>
+                        </div>
+                        <div class="node-details-body" id="node-body">
+                            <!-- Details populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Sidebar Toggle -->
+        <button class="sidebar-toggle" id="sidebar-toggle">
+            <i data-lucide="chevron-left" width="16" height="16"></i>
+        </button>
+
+        <!-- Main Visualization Area -->
+        <main class="main-content">
+            <div class="viz-container">
+                <!-- Loading Overlay -->
+                <div class="loading-overlay" id="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Initializing visualization...</div>
+                </div>
+
+                <!-- Toolbar -->
+                <div class="viz-toolbar">
+                    <button class="toolbar-btn" id="btn-reset" title="Reset View">
+                        <i data-lucide="home" width="18" height="18"></i>
+                    </button>
+                    <button class="toolbar-btn" id="btn-zoom-in" title="Zoom In">
+                        <i data-lucide="zoom-in" width="18" height="18"></i>
+                    </button>
+                    <button class="toolbar-btn" id="btn-zoom-out" title="Zoom Out">
+                        <i data-lucide="zoom-out" width="18" height="18"></i>
+                    </button>
+                    <button class="toolbar-btn" id="btn-fullscreen" title="Fullscreen">
+                        <i data-lucide="maximize-2" width="18" height="18"></i>
+                    </button>
+                    <button class="toolbar-btn" id="btn-export" title="Export SVG">
+                        <i data-lucide="download" width="18" height="18"></i>
+                    </button>
+                </div>
+
+                <!-- SVG Canvas -->
+                <svg id="visualization-canvas"></svg>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Command Palette -->
+    <div class="command-palette-overlay" id="command-palette-overlay">
+        <div class="command-palette">
+            <div class="command-input-container">
+                <i data-lucide="search" width="18" height="18"></i>
+                <input type="text" class="command-input" id="command-input" placeholder="Type a command or search...">
+            </div>
+            <div class="command-results" id="command-results">
+                <div class="command-item" data-action="focus-vulnerable">
+                    <div class="command-item-icon"><i data-lucide="alert-triangle" width="16" height="16"></i></div>
+                    <div class="command-item-content">
+                        <div class="command-item-title">Focus Vulnerable Nodes</div>
+                        <div class="command-item-hint">Highlight all vulnerable components</div>
+                    </div>
+                    <span class="command-item-shortcut">V</span>
+                </div>
+                <div class="command-item" data-action="reset-view">
+                    <div class="command-item-icon"><i data-lucide="home" width="16" height="16"></i></div>
+                    <div class="command-item-content">
+                        <div class="command-item-title">Reset View</div>
+                        <div class="command-item-hint">Reset zoom and pan to default</div>
+                    </div>
+                    <span class="command-item-shortcut">R</span>
+                </div>
+                <div class="command-item" data-action="toggle-sidebar">
+                    <div class="command-item-icon"><i data-lucide="panel-left" width="16" height="16"></i></div>
+                    <div class="command-item-content">
+                        <div class="command-item-title">Toggle Sidebar</div>
+                        <div class="command-item-hint">Show or hide the sidebar panel</div>
+                    </div>
+                    <span class="command-item-shortcut">B</span>
+                </div>
+                <div class="command-item" data-action="export-svg">
+                    <div class="command-item-icon"><i data-lucide="download" width="16" height="16"></i></div>
+                    <div class="command-item-content">
+                        <div class="command-item-title">Export as SVG</div>
+                        <div class="command-item-hint">Download the visualization as SVG</div>
+                    </div>
+                    <span class="command-item-shortcut">E</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // Template Data (placeholder replaced at render time)
+        // =====================================================================
+        const templateData = {{TEMPLATE_DATA}};
+
+        // =====================================================================
+        // Global State
+        // =====================================================================
+        let currentLayout = 'force-directed';
+        let currentVisualization = null;
+        let selectedNode = null;
+        let searchTerm = '';
+        let zoomBehavior = null;
+        let simulation = null;
+        
+        const filters = {
+            direct: true,
+            transitive: true,
+            licenses: true,
+            vulnerable: false
+        };
+
+        // =====================================================================
+        // Initialization
+        // =====================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Lucide icons
+            lucide.createIcons();
+            
+            // Setup
+            updateStatistics();
+            setupEventListeners();
+            setupKeyboardShortcuts();
+            
+            // Render initial visualization
+            showVisualization(currentLayout);
+        });
+
+        // =====================================================================
+        // Statistics
+        // =====================================================================
+        function updateStatistics() {
+            const stats = templateData.statistics || {};
+            
+            document.getElementById('total-components').textContent = stats.total_components || 0;
+            document.getElementById('vulnerable-components').textContent = stats.vulnerable_components || 0;
+            document.getElementById('critical-vulns').textContent = stats.critical_vulnerabilities || 0;
+            document.getElementById('total-licenses').textContent = calculateUniqueLicenses();
+        }
+
+        function calculateUniqueLicenses() {
+            const licenses = new Set();
+            const vizData = templateData.visualization_data || {};
+            
+            Object.values(vizData).forEach(layoutData => {
+                if (layoutData?.data?.nodes) {
+                    layoutData.data.nodes.forEach(node => {
+                        if (node.licenses) {
+                            node.licenses.forEach(l => licenses.add(l.name));
+                        }
+                    });
+                }
+            });
+            
+            return licenses.size;
+        }
+
+        // =====================================================================
+        // Event Listeners
+        // =====================================================================
+        function setupEventListeners() {
+            // Sidebar toggle
+            document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+            
+            // Layout buttons
+            document.querySelectorAll('.layout-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const layout = e.currentTarget.dataset.layout;
+                    switchLayout(layout);
+                });
+            });
+            
+            // Toggle switches
+            document.querySelectorAll('.toggle-switch').forEach(toggle => {
+                toggle.addEventListener('click', (e) => {
+                    e.currentTarget.classList.toggle('active');
+                    const filterName = e.currentTarget.dataset.filter;
+                    filters[filterName] = e.currentTarget.classList.contains('active');
+                    applyFilters();
+                });
+            });
+            
+            // Search
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', (e) => {
+                searchTerm = e.target.value.toLowerCase();
+                applyFilters();
+            });
+            
+            // Toolbar buttons
+            document.getElementById('btn-reset').addEventListener('click', resetView);
+            document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(1.3));
+            document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(0.7));
+            document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+            document.getElementById('btn-export').addEventListener('click', exportSVG);
+            
+            // Command palette
+            document.getElementById('command-palette-overlay').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    hideCommandPalette();
+                }
+            });
+            
+            document.querySelectorAll('.command-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    executeCommand(item.dataset.action);
+                    hideCommandPalette();
+                });
+            });
+        }
+
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Command palette: Cmd/Ctrl + K
+                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                    e.preventDefault();
+                    toggleCommandPalette();
+                    return;
+                }
+                
+                // Focus search: /
+                if (e.key === '/' && !isInputFocused()) {
+                    e.preventDefault();
+                    document.getElementById('search-input').focus();
+                    return;
+                }
+                
+                // Escape: close palette or clear search
+                if (e.key === 'Escape') {
+                    if (document.getElementById('command-palette-overlay').classList.contains('visible')) {
+                        hideCommandPalette();
+                    } else {
+                        document.getElementById('search-input').value = '';
+                        searchTerm = '';
+                        applyFilters();
+                    }
+                    return;
+                }
+                
+                // Single key shortcuts (when not in input)
+                if (!isInputFocused()) {
+                    switch(e.key.toLowerCase()) {
+                        case 'v':
+                            executeCommand('focus-vulnerable');
+                            break;
+                        case 'r':
+                            resetView();
+                            break;
+                        case 'b':
+                            toggleSidebar();
+                            break;
+                        case 'e':
+                            exportSVG();
+                            break;
+                    }
+                }
+            });
+        }
+
+        function isInputFocused() {
+            const active = document.activeElement;
+            return active.tagName === 'INPUT' || active.tagName === 'TEXTAREA';
+        }
+
+        // =====================================================================
+        // Command Palette
+        // =====================================================================
+        function toggleCommandPalette() {
+            const overlay = document.getElementById('command-palette-overlay');
+            overlay.classList.toggle('visible');
+            if (overlay.classList.contains('visible')) {
+                document.getElementById('command-input').focus();
+            }
+        }
+
+        function hideCommandPalette() {
+            document.getElementById('command-palette-overlay').classList.remove('visible');
+            document.getElementById('command-input').value = '';
+        }
+
+        function executeCommand(action) {
+            switch(action) {
+                case 'focus-vulnerable':
+                    const vulnToggle = document.getElementById('toggle-vulnerable');
+                    vulnToggle.classList.add('active');
+                    filters.vulnerable = true;
+                    applyFilters();
+                    break;
+                case 'reset-view':
+                    resetView();
+                    break;
+                case 'toggle-sidebar':
+                    toggleSidebar();
+                    break;
+                case 'export-svg':
+                    exportSVG();
+                    break;
+            }
+        }
+
+        // =====================================================================
+        // Sidebar
+        // =====================================================================
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+            
+            const icon = document.querySelector('#sidebar-toggle i');
+            if (sidebar.classList.contains('collapsed')) {
+                icon.setAttribute('data-lucide', 'chevron-right');
+            } else {
+                icon.setAttribute('data-lucide', 'chevron-left');
+            }
+            lucide.createIcons();
+        }
+
+        // =====================================================================
+        // Layout Switching
+        // =====================================================================
+        function switchLayout(layout) {
+            if (layout === currentLayout) return;
+            
+            // Update button states
+            document.querySelectorAll('.layout-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.layout === layout);
+            });
+            
+            currentLayout = layout;
+            showVisualization(layout);
+        }
+
+        // =====================================================================
+        // Visualization Rendering
+        // =====================================================================
+        function showVisualization(layout) {
+            const loading = document.getElementById('loading');
+            loading.classList.remove('hidden');
+            
+            // Clear previous visualization
+            const svg = d3.select('#visualization-canvas');
+            svg.selectAll('*').remove();
+            
+            if (simulation) {
+                simulation.stop();
+                simulation = null;
+            }
+            
+            const vizData = templateData.visualization_data?.[layout];
+            if (!vizData?.data) {
+                loading.innerHTML = '<div class="loading-text">No data available for this layout</div>';
+                return;
+            }
+            
+            setTimeout(() => {
+                try {
+                    switch(layout) {
+                        case 'force-directed':
+                            renderForceDirected(vizData.data);
+                            break;
+                        case 'hierarchical':
+                            renderHierarchical(vizData.data);
+                            break;
+                        case 'circular':
+                            renderCircular(vizData.data);
+                            break;
+                    }
+                    loading.classList.add('hidden');
+                } catch (error) {
+                    console.error('Visualization error:', error);
+                    loading.innerHTML = '<div class="loading-text">Error rendering visualization</div>';
+                }
+            }, 100);
+        }
+
+        // =====================================================================
+        // Force-Directed Layout
+        // =====================================================================
+        function renderForceDirected(data) {
+            const svg = d3.select('#visualization-canvas');
+            const container = svg.node().parentElement;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            svg.attr('width', width).attr('height', height);
+            
+            const g = svg.append('g');
+            
+            // Setup zoom
+            zoomBehavior = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => g.attr('transform', event.transform));
+            
+            svg.call(zoomBehavior);
+            
+            const nodes = data.nodes || [];
+            const links = data.links || [];
+            
+            // Create simulation
+            simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-400))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(d => (d.size || 20) / 2 + 10));
+            
+            // Create links
+            const link = g.append('g')
+                .attr('class', 'links')
+                .selectAll('line')
+                .data(links)
+                .join('line')
+                .attr('class', d => `link ${d.relationship || ''}`)
+                .attr('stroke', d => getLinkColor(d))
+                .attr('stroke-width', d => d.weight || 1.5)
+                .attr('stroke-dasharray', d => d.relationship === 'transitive' ? '5,5' : d.relationship === 'license' ? '2,2' : null);
+            
+            // Create nodes
+            const node = g.append('g')
+                .attr('class', 'nodes')
+                .selectAll('g')
+                .data(nodes)
+                .join('g')
+                .attr('class', d => getNodeClass(d))
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('click', (event, d) => selectNode(d))
+                .on('mouseenter', (event, d) => showTooltip(event, d))
+                .on('mouseleave', hideTooltip);
+            
+            node.append('circle')
+                .attr('r', d => Math.max(6, (d.size || 20) / 3))
+                .attr('fill', d => getNodeColor(d))
+                .attr('stroke', d => getNodeStroke(d))
+                .attr('stroke-width', d => d.gnnConfidence !== undefined ? 2.5 : 1.5)
+                .attr('stroke-dasharray', d => d.gnnConfidence !== undefined ? '4,4' : null);
+            
+            node.append('text')
+                .attr('dy', d => Math.max(6, (d.size || 20) / 3) + 14)
+                .attr('text-anchor', 'middle')
+                .text(d => truncateLabel(d.label || d.id));
+            
+            // Tick function
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+                
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+            
+            // Store references for filtering
+            currentVisualization = { svg, g, nodes, links, node, link };
+            
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+            
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                // Only release position lock for root nodes (layer 0)
+                // Non-root nodes stay pinned where dragged
+                if (event.subject.layer === 0) {
+                    event.subject.fx = null;
+                    event.subject.fy = null;
+                }
+            }
+        }
+
+        // =====================================================================
+        // Hierarchical Layout
+        // =====================================================================
+        function renderHierarchical(data) {
+            const svg = d3.select('#visualization-canvas');
+            const container = svg.node().parentElement;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            svg.attr('width', width).attr('height', height);
+            
+            const g = svg.append('g').attr('transform', 'translate(80, 40)');
+            
+            // Setup zoom
+            zoomBehavior = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => g.attr('transform', event.transform));
+            
+            svg.call(zoomBehavior);
+            
+            // Create hierarchy
+            const root = d3.hierarchy(data);
+            const treeLayout = d3.tree().nodeSize([35, 180]);
+            treeLayout(root);
+            
+            // Links
+            const linkGenerator = d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x);
+            
+            const link = g.append('g')
+                .selectAll('path')
+                .data(root.links())
+                .join('path')
+                .attr('class', 'link')
+                .attr('fill', 'none')
+                .attr('stroke', d => d.target.data.isVulnerable ? 'var(--color-vulnerable)' : 'var(--color-link-direct)')
+                .attr('stroke-width', d => d.target.data.isVulnerable ? 2 : 1.5)
+                .attr('d', linkGenerator);
+            
+            // Nodes
+            const node = g.append('g')
+                .selectAll('g')
+                .data(root.descendants())
+                .join('g')
+                .attr('class', d => getNodeClass(d.data))
+                .attr('transform', d => `translate(${d.y},${d.x})`)
+                .on('click', (event, d) => selectNode(d.data))
+                .on('mouseenter', (event, d) => showTooltip(event, d.data))
+                .on('mouseleave', hideTooltip);
+            
+            node.append('circle')
+                .attr('r', d => Math.max(5, (d.data.size || 14) / 5))
+                .attr('fill', d => getNodeColor(d.data))
+                .attr('stroke', d => getNodeStroke(d.data))
+                .attr('stroke-width', 1.5);
+            
+            node.append('text')
+                .attr('dy', '0.31em')
+                .attr('x', d => d.children ? -10 : 10)
+                .attr('text-anchor', d => d.children ? 'end' : 'start')
+                .text(d => d.data.label || d.data.name);
+            
+            // Fit to view
+            fitToView(g, svg, width, height, root);
+            
+            // Store node and link references for filtering
+            currentVisualization = { svg, g, root, node, link };
+        }
+
+        // =====================================================================
+        // Circular Layout
+        // =====================================================================
+        function renderCircular(data) {
+            const svg = d3.select('#visualization-canvas');
+            const container = svg.node().parentElement;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const radius = Math.min(width, height) / 3;
+            
+            svg.attr('width', width).attr('height', height);
+            
+            const g = svg.append('g');
+            
+            // Setup zoom
+            zoomBehavior = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => g.attr('transform', event.transform));
+            
+            svg.call(zoomBehavior);
+            
+            const nodes = data.nodes || [];
+            const links = data.links || [];
+            
+            // Calculate max layer for positioning
+            const maxLayer = Math.max(...nodes.map(d => d.layer || 0));
+            
+            // Position nodes in concentric circles
+            nodes.forEach((d, i) => {
+                const layerRadius = (radius * ((d.layer || 0) + 1)) / (maxLayer + 1);
+                const nodesInLayer = nodes.filter(n => (n.layer || 0) === (d.layer || 0));
+                const angleStep = (2 * Math.PI) / nodesInLayer.length;
+                const nodeIndex = nodesInLayer.indexOf(d);
+                const angle = nodeIndex * angleStep - Math.PI / 2;
+                
+                d.x = width / 2 + layerRadius * Math.cos(angle);
+                d.y = height / 2 + layerRadius * Math.sin(angle);
+            });
+            
+            // Create links
+            const link = g.append('g')
+                .selectAll('line')
+                .data(links)
+                .join('line')
+                .attr('class', d => `link ${d.relationship || ''}`)
+                .attr('stroke', d => getLinkColor(d))
+                .attr('stroke-width', d => d.weight || 1.5)
+                .attr('stroke-dasharray', d => d.relationship === 'transitive' ? '5,5' : null)
+                .attr('x1', d => typeof d.source === 'object' ? d.source.x : nodes.find(n => n.id === d.source)?.x)
+                .attr('y1', d => typeof d.source === 'object' ? d.source.y : nodes.find(n => n.id === d.source)?.y)
+                .attr('x2', d => typeof d.target === 'object' ? d.target.x : nodes.find(n => n.id === d.target)?.x)
+                .attr('y2', d => typeof d.target === 'object' ? d.target.y : nodes.find(n => n.id === d.target)?.y);
+            
+            // Create nodes
+            const node = g.append('g')
+                .selectAll('g')
+                .data(nodes)
+                .join('g')
+                .attr('class', d => getNodeClass(d))
+                .attr('transform', d => `translate(${d.x},${d.y})`)
+                .on('click', (event, d) => selectNode(d))
+                .on('mouseenter', (event, d) => showTooltip(event, d))
+                .on('mouseleave', hideTooltip);
+            
+            node.append('circle')
+                .attr('r', d => Math.max(6, (d.size || 20) / 3))
+                .attr('fill', d => getNodeColor(d))
+                .attr('stroke', d => getNodeStroke(d))
+                .attr('stroke-width', 1.5);
+            
+            node.append('text')
+                .attr('dy', d => Math.max(6, (d.size || 20) / 3) + 14)
+                .attr('text-anchor', 'middle')
+                .text(d => truncateLabel(d.label || d.id));
+            
+            currentVisualization = { svg, g, nodes, links, node, link };
+        }
+
+        // =====================================================================
+        // Helper Functions
+        // =====================================================================
+        function getNodeColor(d) {
+            if (d.isVulnerable) return 'var(--color-vulnerable)';
+            if (d.isDependent || d.isDependentOnVulnerable) return 'var(--color-warning)';
+            if (d.type === 'LICENSE') return 'var(--color-node-license)';
+            if (d.type === 'SBOM') return 'var(--color-node-sbom)';
+            return d.color || 'var(--color-node-library)';
+        }
+
+        function getNodeStroke(d) {
+            if (d.gnnConfidence !== undefined) {
+                const conf = d.gnnConfidence || 0;
+                return d3.interpolateRgb('#00ff88', '#ff4757')(conf);
+            }
+            return 'rgba(255,255,255,0.3)';
+        }
+
+        function getNodeClass(d) {
+            let classes = 'node';
+            if (d.isVulnerable) classes += ' vulnerable';
+            if (d.isDependent || d.isDependentOnVulnerable) classes += ' dependent';
+            if (d.type) classes += ` ${d.type.toLowerCase()}`;
+            return classes;
+        }
+
+        function getLinkColor(d) {
+            if (d.isVulnerableConnection) return 'var(--color-vulnerable)';
+            if (d.isDependentConnection) return 'var(--color-warning)';
+            if (d.relationship === 'license') return 'var(--color-link-license)';
+            if (d.relationship === 'transitive') return 'var(--color-link-transitive)';
+            return d.color || 'var(--color-link-direct)';
+        }
+
+        function truncateLabel(label, maxLen = 15) {
+            if (!label) return '';
+            return label.length > maxLen ? label.substring(0, maxLen - 2) + '...' : label;
+        }
+
+        function fitToView(g, svg, width, height, root) {
+            setTimeout(() => {
+                const bounds = g.node().getBBox();
+                if (bounds.width === 0 || bounds.height === 0) return;
+                
+                const scale = 0.9 * Math.min(width / bounds.width, height / bounds.height);
+                const transform = d3.zoomIdentity
+                    .translate(width / 2 - (bounds.x + bounds.width / 2) * scale, height / 2 - (bounds.y + bounds.height / 2) * scale)
+                    .scale(scale);
+                
+                svg.transition().duration(750).call(zoomBehavior.transform, transform);
+            }, 100);
+        }
+
+        // =====================================================================
+        // Filtering
+        // =====================================================================
+        
+        // Map relationship types to filter categories
+        function getFilterCategory(relationship) {
+            const directTypes = ['direct', 'vulnerability_focus', 'context', 'hub', 'spoke'];
+            const transitiveTypes = ['transitive'];
+            const licenseTypes = ['license', 'license_group'];
+            
+            if (directTypes.includes(relationship)) return 'direct';
+            if (transitiveTypes.includes(relationship)) return 'transitive';
+            if (licenseTypes.includes(relationship)) return 'licenses';
+            return 'direct'; // Default to direct for unknown types
+        }
+        
+        function applyFilters() {
+            if (!currentVisualization) return;
+            
+            const { node, link } = currentVisualization;
+            if (!node || !link) return;
+            
+            // Determine which links should be visible
+            const shouldShowLink = (d) => {
+                const category = getFilterCategory(d.relationship);
+                if (category === 'direct' && !filters.direct) return false;
+                if (category === 'transitive' && !filters.transitive) return false;
+                if (category === 'licenses' && !filters.licenses) return false;
+                return true;
+            };
+            
+            // Apply link filters with transition
+            link
+                .transition()
+                .duration(300)
+                .style('opacity', d => shouldShowLink(d) ? 0.6 : 0)
+                .style('pointer-events', d => shouldShowLink(d) ? 'auto' : 'none');
+            
+            // Build a set of visible node IDs based on visible links
+            const visibleNodeIds = new Set();
+            if (currentVisualization.nodes) {
+                // In force layout, collect nodes connected by visible links
+                const links = currentVisualization.links || [];
+                links.forEach(lnk => {
+                    if (shouldShowLink(lnk)) {
+                        const sourceId = typeof lnk.source === 'object' ? lnk.source.id : lnk.source;
+                        const targetId = typeof lnk.target === 'object' ? lnk.target.id : lnk.target;
+                        visibleNodeIds.add(sourceId);
+                        visibleNodeIds.add(targetId);
+                    }
+                });
+                // Always show root nodes
+                currentVisualization.nodes.forEach(n => {
+                    if (n.isRoot || n.type === 'SBOM') visibleNodeIds.add(n.id);
+                });
+            }
+            
+            // Apply node filters
+            node
+                .transition()
+                .duration(300)
+                .style('opacity', d => {
+                    const data = d.data || d;
+                    const nodeId = data.id;
+                    const label = (data.label || data.id || '').toLowerCase();
+                    const matchesSearch = !searchTerm || label.includes(searchTerm);
+                    const isVulnerableOrDependent = data.isVulnerable || data.isDependent || data.isDependentOnVulnerable;
+                    
+                    // If highlight vulnerable is on
+                    if (filters.vulnerable) {
+                        // Non-vulnerable nodes are always dimmed when filter is active
+                        if (!isVulnerableOrDependent) {
+                            return 0.15;
+                        }
+                        // Vulnerable nodes: if searching, only show those matching search
+                        // If not searching, show all vulnerable nodes
+                        if (searchTerm && !matchesSearch) {
+                            return 0.15;
+                        }
+                        // Vulnerable node that matches (or no search active)
+                        return 1;
+                    }
+                    
+                    // No vulnerable filter - apply search filtering
+                    if (!matchesSearch) return 0.15;
+                    
+                    // If we have link-based filtering and node is not connected by visible links
+                    if (visibleNodeIds.size > 0 && !visibleNodeIds.has(nodeId)) {
+                        return 0.15;
+                    }
+                    
+                    return 1;
+                });
+        }
+
+        // =====================================================================
+        // Node Selection
+        // =====================================================================
+        function selectNode(d) {
+            selectedNode = d;
+            const panel = document.getElementById('node-details');
+            panel.classList.add('show');
+            
+            // Update header
+            document.getElementById('node-title').textContent = d.fullLabel || d.label || d.name || d.id;
+            document.getElementById('node-type').textContent = d.type || 'Component';
+            
+            // Update icon
+            const iconEl = document.getElementById('node-icon');
+            iconEl.className = 'node-details-icon';
+            if (d.isVulnerable) {
+                iconEl.classList.add('vulnerable');
+                iconEl.innerHTML = '<i data-lucide="alert-triangle"></i>';
+            } else if (d.type === 'LICENSE') {
+                iconEl.classList.add('library');
+                iconEl.innerHTML = '<i data-lucide="file-text"></i>';
+            } else {
+                iconEl.classList.add('library');
+                iconEl.innerHTML = '<i data-lucide="package"></i>';
+            }
+            lucide.createIcons({ nodes: [iconEl] });
+            
+            // Build body content
+            let bodyHTML = '';
+            
+            // Properties
+            const props = [
+                ['Version', d.version],
+                ['Layer', d.layer],
+                ['Type', d.type]
+            ];
+            
+            props.forEach(([label, value]) => {
+                if (value !== undefined) {
+                    bodyHTML += `<div class="detail-row">
+                        <span class="detail-label">${label}</span>
+                        <span class="detail-value">${value}</span>
+                    </div>`;
+                }
+            });
+            
+            // GNN Prediction
+            if (d.gnnPrediction && d.gnnPrediction !== 'Unknown') {
+                const confPercent = ((d.gnnConfidence || 0) * 100).toFixed(1);
+                const predColor = d.gnnPrediction === 'Vulnerable' ? 'var(--color-warning)' : 'var(--color-safe)';
+                bodyHTML += `<div class="detail-row">
+                    <span class="detail-label">GNN Prediction</span>
+                    <span class="detail-value" style="color: ${predColor}">${d.gnnPrediction} (${confPercent}%)</span>
+                </div>`;
+            }
+            
+            // Vulnerabilities
+            if (d.vulnerabilities && d.vulnerabilities.length > 0) {
+                bodyHTML += `<div class="vuln-list">`;
+                d.vulnerabilities.slice(0, 5).forEach(vuln => {
+                    const severity = (vuln.cvss_severity || 'unknown').toLowerCase();
+                    const badgeClass = severity === 'critical' ? 'badge-critical' : 
+                                       severity === 'high' ? 'badge-high' :
+                                       severity === 'medium' ? 'badge-medium' : 'badge-low';
+                    bodyHTML += `<div class="vuln-item">
+                        <div class="vuln-header">
+                            <span class="vuln-id">${vuln.id || vuln.cve_id || vuln.source_id || 'Unknown'}</span>
+                            <span class="badge ${badgeClass}">${severity}</span>
+                        </div>
+                        <div class="vuln-description">${(vuln.description || '').substring(0, 150)}${vuln.description?.length > 150 ? '...' : ''}</div>
+                    </div>`;
+                });
+                if (d.vulnerabilities.length > 5) {
+                    bodyHTML += `<div style="font-size: 11px; color: var(--color-text-muted); margin-top: 8px;">
+                        + ${d.vulnerabilities.length - 5} more vulnerabilities
+                    </div>`;
+                }
+                bodyHTML += `</div>`;
+            }
+            
+            document.getElementById('node-body').innerHTML = bodyHTML;
+        }
+
+        // =====================================================================
+        // Tooltip
+        // =====================================================================
+        function showTooltip(event, d) {
+            const tooltip = document.getElementById('tooltip');
+            
+            // Build tooltip content
+            const iconClass = d.isVulnerable ? 'vulnerable' : d.type === 'LICENSE' ? 'license' : 'library';
+            let html = `
+                <div class="tooltip-header">
+                    <div class="tooltip-icon" style="background: ${d.isVulnerable ? 'var(--color-vulnerable-dim)' : 'var(--color-surface-card)'}; color: ${d.isVulnerable ? 'var(--color-vulnerable)' : 'var(--color-accent-primary)'}">
+                        <i data-lucide="${d.isVulnerable ? 'alert-triangle' : 'package'}" width="18" height="18"></i>
+                    </div>
+                    <div>
+                        <div class="tooltip-title">${d.fullLabel || d.label || d.name || d.id}</div>
+                        <div class="tooltip-subtitle">${d.type || 'Component'}${d.version ? ' v' + d.version : ''}</div>
+                    </div>
+                </div>
+            `;
+            
+            if (d.description) {
+                html += `<div class="tooltip-content">${d.description}</div>`;
+            }
+            
+            // GNN Analysis
+            if (d.gnnPrediction && d.gnnPrediction !== 'Unknown' && d.gnnPrediction !== 'Error') {
+                const confPercent = ((d.gnnConfidence || 0) * 100).toFixed(1);
+                const predColor = d.gnnPrediction === 'Vulnerable' ? 'var(--color-warning)' : 'var(--color-safe)';
+                html += `<div class="tooltip-section">
+                    <div class="tooltip-section-title">GNN Analysis</div>
+                    <div style="font-size: 12px;">
+                        Prediction: <strong style="color: ${predColor}">${d.gnnPrediction}</strong><br>
+                        Confidence: ${confPercent}%
+                    </div>
+                </div>`;
+            }
+            
+            // Licenses
+            if (d.licenses && d.licenses.length > 0) {
+                html += `<div class="tooltip-section license">
+                    <div class="tooltip-section-title">Licenses</div>
+                    <div style="font-size: 12px;">
+                        ${d.licenses.map(l => `<span style="color: ${l.type === 'permissive' ? 'var(--color-safe)' : l.type === 'copyleft' ? 'var(--color-warning)' : 'var(--color-text-secondary)'}">${l.name}</span>`).join(', ')}
+                    </div>
+                </div>`;
+            }
+            
+            // Vulnerabilities
+            if (d.isVulnerable && d.vulnerabilities?.length > 0) {
+                html += `<div class="tooltip-section vulnerable">
+                    <div class="tooltip-section-title">Vulnerabilities (${d.vulnerabilities.length})</div>
+                    <div style="font-size: 12px;">
+                        ${d.vulnerabilities.slice(0, 3).map(v => `<div style="margin-bottom: 4px;"><strong style="color: var(--color-vulnerable)">${v.id || v.cve_id || v.source_id || 'Unknown'}</strong></div>`).join('')}
+                        ${d.vulnerabilities.length > 3 ? `<div style="color: var(--color-text-muted)">+ ${d.vulnerabilities.length - 3} more</div>` : ''}
+                    </div>
+                </div>`;
+            } else if (d.isDependent || d.isDependentOnVulnerable) {
+                html += `<div class="tooltip-section warning">
+                    <div class="tooltip-section-title">Dependency Warning</div>
+                    <div style="font-size: 12px;">This component depends on vulnerable packages.</div>
+                </div>`;
+            }
+            
+            tooltip.innerHTML = html;
+            lucide.createIcons({ nodes: [tooltip] });
+            
+            // Position tooltip
+            const rect = tooltip.getBoundingClientRect();
+            let left = event.pageX + 15;
+            let top = event.pageY - 15;
+            
+            if (left + rect.width > window.innerWidth - 20) {
+                left = window.innerWidth - rect.width - 20;
+            }
+            if (top + rect.height > window.innerHeight - 20) {
+                top = window.innerHeight - rect.height - 20;
+            }
+            if (top < 20) top = 20;
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.classList.add('visible');
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('visible');
+        }
+
+        // =====================================================================
+        // Zoom Controls
+        // =====================================================================
+        function resetView() {
+            if (!zoomBehavior || !currentVisualization?.svg) return;
+            
+            currentVisualization.svg.transition()
+                .duration(750)
+                .call(zoomBehavior.transform, d3.zoomIdentity);
+        }
+
+        function zoomBy(factor) {
+            if (!zoomBehavior || !currentVisualization?.svg) return;
+            
+            currentVisualization.svg.transition()
+                .duration(300)
+                .call(zoomBehavior.scaleBy, factor);
+        }
+
+        // =====================================================================
+        // Fullscreen
+        // =====================================================================
+        function toggleFullscreen() {
+            const container = document.querySelector('.main-content');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen?.() || container.webkitRequestFullscreen?.();
+            } else {
+                document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+            }
+        }
+
+        // =====================================================================
+        // Export
+        // =====================================================================
+        function exportSVG() {
+            const svg = document.getElementById('visualization-canvas');
+            const serializer = new XMLSerializer();
+            let svgStr = serializer.serializeToString(svg);
+            
+            // Add styles
+            const styles = `<style>
+                .node text { font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: #e8eaf6; }
+                .link { stroke-opacity: 0.6; }
+            </style>`;
+            svgStr = svgStr.replace('>', '>' + styles);
+            
+            const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sbom-visualization.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
