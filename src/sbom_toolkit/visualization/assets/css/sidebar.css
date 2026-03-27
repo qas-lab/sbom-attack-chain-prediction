@@ -1,0 +1,265 @@
+/* Sidebar Styles */
+.sidebar {
+    width: 350px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 20px;
+    overflow-y: auto;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar h1 {
+    color: #2c3e50;
+    font-size: 20px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.sidebar h2 {
+    color: #34495e;
+    font-size: 16px;
+    margin: 20px 0 10px 0;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    border-radius: 5px;
+}
+
+.sidebar h3 {
+    color: #2c3e50;
+    font-size: 14px;
+    margin: 15px 0 8px 0;
+    font-weight: 600;
+}
+
+/* Layout Selection */
+.layout-selection {
+    margin-bottom: 25px;
+}
+
+.layout-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.layout-btn {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.layout-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+}
+
+.layout-btn.active {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+}
+
+.layout-btn.active::before {
+    content: "✓";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Statistics Cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.7);
+    padding: 15px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(5px);
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: scale(1.05);
+}
+
+.stat-number {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-card.danger .stat-number {
+    color: #e74c3c;
+}
+
+.stat-card.warning .stat-number {
+    color: #f39c12;
+}
+
+.stat-card.success .stat-number {
+    color: #27ae60;
+}
+
+/* License Information */
+.license-list {
+    background: rgba(248, 249, 250, 0.9);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 8px;
+    border-left: 3px solid #9b59b6;
+}
+
+.license-item {
+    margin: 4px 0;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.license-name {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.license-type {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    color: white;
+    margin-left: 6px;
+}
+
+.license-type.permissive {
+    background: #27ae60;
+}
+
+.license-type.copyleft {
+    background: #f39c12;
+}
+
+.license-type.proprietary {
+    background: #e74c3c;
+}
+
+.license-type.unknown {
+    background: #7f8c8d;
+}
+
+/* Vulnerability List */
+.vulnerability-list {
+    background: rgba(231, 76, 60, 0.1);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 8px;
+    border-left: 3px solid #e74c3c;
+}
+
+.vulnerability-item {
+    margin: 6px 0;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.vuln-id {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-right: 8px;
+}
+
+.vuln-severity {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    color: white;
+    text-transform: uppercase;
+}
+
+.vuln-severity.critical {
+    background: #8b0000;
+}
+
+.vuln-severity.high {
+    background: #e74c3c;
+}
+
+.vuln-severity.medium {
+    background: #f39c12;
+}
+
+.vuln-severity.low {
+    background: #f1c40f;
+    color: #2c3e50;
+}
+
+.vuln-severity.unknown {
+    background: #7f8c8d;
+}
+
+/* GNN Predictions */
+.gnn-predictions {
+    background: rgba(142, 68, 173, 0.1);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 8px;
+    border-left: 3px solid #9b59b6;
+}
+
+.prediction-item {
+    margin: 4px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+}
+
+.prediction-label {
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.prediction-value {
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: white;
+    font-weight: 600;
+}
+
+.prediction-value.high {
+    background: #e74c3c;
+}
+
+.prediction-value.medium {
+    background: #f39c12;
+}
+
+.prediction-value.low {
+    background: #27ae60;
+}

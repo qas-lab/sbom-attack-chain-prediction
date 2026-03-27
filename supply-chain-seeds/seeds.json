@@ -1,0 +1,99 @@
+[
+  {
+    "repository_url": "https://github.com/saltstack/salt",
+    "incident_id": "AC-SaltStack-2020",
+    "notes": "Directly affected OSS project; analyze Salt master REST/wheel modules and publisher auth paths.",
+    "suspected_components": ["pkg:pypi/salt"],
+    "suspected_cves": ["CVE-2020-11651", "CVE-2020-11652"],
+    "sources": ["https://saltproject.io/security-announcements/2020-04-30/"]
+  },
+  {
+    "repository_url": "https://github.com/gitlabhq/gitlabhq",
+    "incident_id": "AC-GitLab-ExifTool-2021",
+    "notes": "GitLab CE as OSS surrogate; maps to CVE-2021-22205 integration of ExifTool preauth path.",
+    "suspected_components": ["pkg:gem/exiftool_vendored", "pkg:gem/mini_magick"],
+    "suspected_cves": ["CVE-2021-22205", "CVE-2021-22204"],
+    "sources": ["https://about.gitlab.com/releases/2021/04/14/security-release-gitlab-13-10-3-released/"]
+  },
+  {
+    "repository_url": "https://github.com/exiftool/exiftool",
+    "incident_id": "AC-GitLab-ExifTool-2021",
+    "notes": "Upstream ExifTool vuln component for the chain; analyze DjVu handling modules.",
+    "suspected_components": ["pkg:github/exiftool/exiftool"],
+    "suspected_cves": ["CVE-2021-22204"],
+    "sources": ["https://nvd.nist.gov/vuln/detail/CVE-2021-22204"]
+  },
+  {
+    "repository_url": "https://github.com/Zimbra/zm-mailbox",
+    "incident_id": "AC-Zimbra-2022",
+    "notes": "Core mailbox server; maps to servlet upload and auth bypass paths involved in exploitation.",
+    "suspected_components": ["pkg:maven/com.zimbra/zm-mailbox"],
+    "suspected_cves": ["CVE-2022-27925", "CVE-2022-37042"],
+    "sources": ["https://wiki.zimbra.com/wiki/CVE-2022-27925", "https://wiki.zimbra.com/wiki/CVE-2022-37042"]
+  },
+  {
+    "repository_url": "https://github.com/Zimbra/zm-web-client",
+    "incident_id": "AC-Zimbra-2022",
+    "notes": "Web client/servlets interface potentially implicated in upload path and auth caching.",
+    "suspected_components": ["pkg:maven/com.zimbra/zm-web-client"],
+    "suspected_cves": ["CVE-2022-27925"],
+    "sources": ["https://www.volexity.com/blog/2022/08/10/active-exploitation-of-zimbra-collaboration-vulnerabilities/"]
+  },
+  {
+    "repository_url": "https://github.com/apache/httpd",
+    "incident_id": "AC-ApacheHttpd-2021",
+    "notes": "Actual affected OSS server; test 2.4.49/2.4.50 traversal and RCE code paths.",
+    "suspected_components": ["pkg:apache/httpd"],
+    "suspected_cves": ["CVE-2021-41773", "CVE-2021-42013"],
+    "sources": ["https://httpd.apache.org/security/vulnerabilities_24.html"]
+  },
+  {
+    "repository_url": "https://github.com/jenkinsci/jenkins",
+    "incident_id": "AC-Jenkins-2019",
+    "notes": "Jenkins core for end-to-end sandbox escape validation via Pipeline.",
+    "suspected_components": ["pkg:maven/org.jenkins-ci.main/jenkins-core"],
+    "suspected_cves": ["CVE-2019-1003000", "CVE-2019-1003001", "CVE-2019-1003002"],
+    "sources": ["https://www.jenkins.io/security/advisory/2019-01-08/"]
+  },
+  {
+    "repository_url": "https://github.com/jenkinsci/script-security-plugin",
+    "incident_id": "AC-Jenkins-2019",
+    "notes": "Vulnerable plugin where the sandbox escape root cause lives.",
+    "suspected_components": ["pkg:maven/org.jenkins-ci.plugins/script-security"],
+    "suspected_cves": ["CVE-2019-1003000", "CVE-2019-1003001", "CVE-2019-1003002"],
+    "sources": ["https://www.jenkins.io/security/advisory/2019-01-08/"]
+  },
+  {
+    "repository_url": "https://github.com/apache/ofbiz-framework",
+    "incident_id": "AC-OFBiz-2023",
+    "notes": "Actual affected OSS framework; examine XML-RPC endpoint and auth filters across both CVEs.",
+    "suspected_components": ["pkg:maven/org.apache.ofbiz/ofbiz-framework"],
+    "suspected_cves": ["CVE-2023-49070", "CVE-2023-51467"],
+    "sources": ["https://ofbiz.apache.org/security.html#CVE-2023-49070", "https://ofbiz.apache.org/security.html#CVE-2023-51467"]
+  },
+  {
+    "repository_url": "https://github.com/apache/guacamole-server",
+    "incident_id": "AC-Guacamole-2020",
+    "notes": "Upstream guacd server where RDP parsing flaws live; use with guacamole-client.",
+    "suspected_components": ["pkg:apache/guacamole-server"],
+    "suspected_cves": ["CVE-2020-9497", "CVE-2020-9498"],
+    "sources": ["https://guacamole.apache.org/security/2020/06/23/Guacamole-1.2.0-released.html"]
+  },
+  {
+    "repository_url": "https://github.com/apache/guacamole-client",
+    "incident_id": "AC-Guacamole-2020",
+    "notes": "Client gateway logic and protocol handlers linked to the chain.",
+    "suspected_components": ["pkg:apache/guacamole-client"],
+    "suspected_cves": ["CVE-2020-9497", "CVE-2020-9498"],
+    "sources": ["https://nvd.nist.gov/vuln/detail/CVE-2020-9497"]
+  },
+  {
+    "repository_url": "https://github.com/magento/magento2",
+    "incident_id": "AC-AdobeCommerce-2022",
+    "notes": "Upstream Magento 2 OSS; analyze checkout/cart request paths and patch deltas.",
+    "suspected_components": ["pkg:composer/magento/module-checkout", "pkg:composer/magento/module-quote"],
+    "suspected_cves": ["CVE-2022-24086", "CVE-2022-24087"],
+    "sources": ["https://helpx.adobe.com/security/products/magento/apsb22-12.html"]
+  }
+]
+
